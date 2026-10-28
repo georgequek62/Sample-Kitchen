@@ -1,0 +1,26 @@
+# Dependencies and build output
+node_modules/
+.pnpm-store/
+.next/
+out/
+dist/
+generated/
+*.tsbuildinfo
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+.vercel/
+
+# Private operating exports are uploaded through the app, not published
+/operating-data/
+
+# Local editor and OS files
+.DS_Store
+*.swp
+~$*
+
+# Local learning materials kept outside the app source
+*.docx
+*.xlsx

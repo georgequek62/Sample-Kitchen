@@ -1,0 +1,170 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ImportKind {
+  STOCK
+  HR_STAFF
+  HR_LEAVE
+  HR_AVAILABILITY
+  CRM
+}
+
+enum EmploymentType {
+  PERMANENT
+  PART_TIME
+}
+
+model ReferenceSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+model Product {
+  id                  String   @id
+  name                String
+  labourHoursPerUnit  Float
+  recipes             Recipe[]
+}
+
+model Ingredient {
+  id               String              @id
+  name             String?
+  unit             String?
+  recipes          Recipe[]
+  inventoryRecords InventoryRecord[]
+}
+
+model Recipe {
+  productId       String
+  ingredientId    String
+  quantityPerUnit Float
+  product         Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  ingredient      Ingredient @relation(fields: [ingredientId], references: [id])
+
+  @@id([productId, ingredientId])
+}
+
+model ImportBatch {
+  id            String     @id @default(cuid())
+  kind          ImportKind
+  sourceFilename String
+  exportId      String?
+  sourceSystem  String?
+  exportStatus  String?
+  effectiveMonth String?
+  exportedAt    DateTime?
+  checkedAt     DateTime?
+  importedAt    DateTime   @default(now())
+  recordCount   Int
+  contentSha256 String
+  inventory     InventoryRecord[]
+  staffRecords  StaffImportRecord[]
+  leave         LeaveRecord[]
+  availability  AvailabilityRecord[]
+  orders        SalesOrder[]
+
+  @@unique([kind, exportId])
+  @@unique([kind, contentSha256])
+  @@index([kind, importedAt])
+}
+
+model InventoryRecord {
+  id           String      @id @default(cuid())
+  batchId      String
+  ingredientId String
+  onHand       Float
+  committed    Float
+  packSize     Float
+  packName     String
+  checkedAt    DateTime
+  batch        ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  ingredient   Ingredient  @relation(fields: [ingredientId], references: [id])
+
+  @@unique([batchId, ingredientId])
+}
+
+model StaffMember {
+  id             String         @id
+  name           String
+  employmentType EmploymentType
+  role           String
+  skills         String[]
+  leave          LeaveRecord[]
+  availability   AvailabilityRecord[]
+}
+
+model StaffImportRecord {
+  id             String         @id @default(cuid())
+  batchId        String
+  staffId        String
+  name           String
+  employmentType EmploymentType
+  role           String
+  skills         String[]
+  batch          ImportBatch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@unique([batchId, staffId])
+}
+
+model LeaveRecord {
+  id             String      @id @default(cuid())
+  batchId        String
+  sourceRecordId String
+  staffId        String
+  date           DateTime    @db.Date
+  status         String
+  reason         String?
+  batch          ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  staff          StaffMember @relation(fields: [staffId], references: [id])
+
+  @@unique([batchId, sourceRecordId])
+  @@index([staffId, date])
+}
+
+model AvailabilityRecord {
+  id        String      @id @default(cuid())
+  batchId   String
+  staffId   String
+  date      DateTime    @db.Date
+  start     String
+  end       String
+  status    String
+  batch     ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  staff     StaffMember @relation(fields: [staffId], references: [id])
+
+  @@unique([batchId, staffId, date])
+}
+
+model SalesOrder {
+  id             String      @id @default(cuid())
+  batchId        String
+  orderId        String
+  productionDate DateTime    @db.Date
+  customer       String
+  productId      String
+  quantity       Int
+  status         String
+  receivedAt     DateTime
+  batch          ImportBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@unique([batchId, orderId])
+  @@index([productionDate, productId])
+}
+
+model AgentRun {
+  id            String   @id @default(cuid())
+  model         String
+  importVersions Json
+  recommendations Json
+  handoffTrace  Json
+  createdAt     DateTime @default(now())
+
+  @@index([createdAt])
+}
